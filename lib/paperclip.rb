@@ -126,7 +126,7 @@ module Paperclip
     end
 
     def logger #:nodoc:
-      ActiveRecord::Base.logger
+      Rails.logger
     end
 
     def logging? #:nodoc:
@@ -256,10 +256,48 @@ module Paperclip
         attachment_for(name).file?
       end
 
-      validates_each(name) do |record, attr, value|
+
+      validates_each name, :logic => lambda {|record, attr, value|
         attachment = record.attachment_for(name)
         attachment.send(:flush_errors)
+      }
+      
+      
+      #Add remote intializaton
+      if options[:remote] 
+        
+        attr_accessor options[:remote].to_sym
+        
+        before_validation :download_remote, :if =>  :"#{options[:remote].to_s}_provided?"
+        validates_presence_of :"remote_#{options[:remote].to_s}", :if => :"#{options[:remote].to_s}_provided?", :message => 'is invalid or inaccessible'
+
+        class_eval %{
+          
+          private
+            def #{options[:remote].to_s}_provided?
+              !self.#{options[:remote].to_s}.blank?
+            end
+            def download_remote
+              self.remote_#{options[:remote].to_s} = #{options[:remote].to_s}
+              self.#{name} = do_download_remote              
+            end
+            def do_download_remote
+              io = open(URI.parse(URI.escape(remote_#{options[:remote].to_s})))
+              def io.original_filename; URI.unescape(base_uri.path.split('/').last); end
+              io.original_filename.blank? ? nil : io
+            rescue # catch url errors with validations instead of exceptions (Errno::ENOENT, OpenURI::HTTPError, etc...)
+            end
+            
+
+          
+          }
+          
+          
+          
+        
       end
+      
+      
     end
 
     # Places ActiveRecord-style validations on the size of the file assigned. The
@@ -359,6 +397,7 @@ module Paperclip
 
     def save_attached_files
       Paperclip.log("Saving attachments.")
+      debugger
       each_attachment do |name, attachment|
         attachment.send(:save)
       end

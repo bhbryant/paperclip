@@ -257,7 +257,7 @@ module Paperclip
       end
 
 
-      validates_each name, :logic => lambda {|record, attr, value|
+      validates_each(name) do |record, attr, value|
         attachment = record.attachment_for(name)
         attachment.send(:flush_errors)
       }

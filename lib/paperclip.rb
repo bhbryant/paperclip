@@ -160,6 +160,7 @@ module Paperclip
   module Glue
     def self.included base #:nodoc:
       base.extend ClassMethods
+      base.class_attribute :attachment_definitions
       if base.respond_to?("set_callback")
         base.send :include, Paperclip::CallbackCompatability::Rails3
       else
@@ -235,7 +236,13 @@ module Paperclip
     def has_attached_file name, options = {}
       include InstanceMethods
 
-      self._attachment_definitions = {} if attachment_definitions.nil?
+      if attachment_definitions.nil?
+        self.attachment_definitions = {}
+      else
+        self.attachment_definitions = self.attachment_definitions.dup
+      end
+        
+      
       attachment_definitions[name] = {:validations => []}.merge(options)
 
       after_save :save_attached_files
@@ -381,7 +388,7 @@ module Paperclip
     # Returns the attachment definitions defined by each call to
     # has_attached_file.
     def attachment_definitions
-      self._attachment_definitions
+      self.attachment_definitions
     end
   end
 
